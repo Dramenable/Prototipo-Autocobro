@@ -12,5 +12,6 @@ namespace CrudContactosMVC.Data
 
         //Aquí se agregarán los DbSet más adelante
         public DbSet<Contacto> Contactos { get; set; }
+        public DbSet<Producto> Productos { get; set; }
     }
 }
