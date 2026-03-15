@@ -1,0 +1,31 @@
+﻿@model CrudContactosMVC.Models.Contacto
+
+@{
+    ViewData["Title"] = "Eliminar Contacto";
+}
+
+
+<h1 class="text-center">Eliminar Contacto</h1>
+<h3 class="text-center">¿Está seguro que desea eliminar este contacto?</h3>
+
+<hr />
+
+<dl class="row">
+    <dt class="col-sm-3">Nombre</dt>
+    <dd class="col-sm-9">@Model.Nombre</dd>
+
+    <dt class="col-sm-3">Correo</dt>
+    <dd class="col-sm-9">@Model.Correo</dd>
+
+    <dt class="col-sm-3">Teléfono</dt>
+    <dd class="col-sm-9">@Model.Telefono</dd>
+
+    <dt class="col-sm-3">Direccion</dt>
+    <dd class="col-sm-9">@Model.Direccion</dd>
+
+   <form asp-action="Borrar" method="POST">
+       <input type="hidden" asp-for="Id" />
+       <button type="submit" class="btn btn-danger">Eliminar</button>
+        <a asp-action="Index" class="btn btn-secondary btn-sm">Volver</a>
+   </form>
+</dl>

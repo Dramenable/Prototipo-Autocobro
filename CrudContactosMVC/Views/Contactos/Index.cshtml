@@ -1,0 +1,56 @@
+﻿@model IEnumerable<CrudContactosMVC.Models.Contacto>
+
+@{
+    ViewData["Title"] = "Lista de Contactos";
+}
+
+<h1 class="text-center">Contactos</h1>
+
+<p>
+    <a asp-action="Crear" class="btn btn-primary">Nuevo Contacto</a>
+</p>
+
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Teléfono</th>
+            <th>Dirección</th>
+            <th style="width: 220px;">Acciones</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var contacto in Model)
+        {
+            <tr>
+                <td>@contacto.Id</td>
+                <td>@contacto.Nombre</td>
+                <td>@contacto.Correo</td>
+                <td>@contacto.Telefono</td>
+                <td>@contacto.Direccion</td>
+                <td>
+                    <a asp-action="Editar" 
+                        asp-route-id="@contacto.Id" 
+                        class="btn btn-warning btn-sm">
+                        Editar
+                    </a>
+
+                    <a asp-action="Detalle"
+                       asp-route-id="@contacto.Id"
+                       class="btn btn-info btn-sm">
+                        Detalle
+                    </a>
+
+                    <a asp-action="Borrar"
+                       asp-route-id="@contacto.Id"
+                       class="btn btn-danger btn-sm">
+                        Eliminar
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
