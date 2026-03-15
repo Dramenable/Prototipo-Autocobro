@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 
 namespace CrudContactosMVC.Models
 {
@@ -12,6 +13,7 @@ namespace CrudContactosMVC.Models
         public string Nombre { get; set; }
 
         [Range(0, double.MaxValue, ErrorMessage = "El precio debe ser mayor o igual a cero")]
+        [Precision(18, 2)]
         public decimal Precio { get; set; }
 
         [Range(0, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor o igual a cero")]
