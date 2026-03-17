@@ -1,25 +1,73 @@
 ﻿@{
-    ViewData["Title"] = "Inicio - CRUD Contactos";
+    ViewData["Title"] = "Inicio - Autocobro con Vision Artificial";
 }
 
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-8 text-center">
+        <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <h1 class="card-title mb-3">CRUD Contactos</h1>
-                    <p class="card-text text-muted">
-                        Aplicación desarrollada con ASP.NET Core MVC, Entity Framework Core y SQL Server LocalDB.
-                    </p>
+                    <h3 class="card-title text-center mb-4">Iniciar sesión</h3>
 
-                    <a asp-controller="Contactos"
-                        asp-action="Index"
-                        class="btn btn-primary mt-3">
-                        Ver Contactos
-                    </a>
+                    <form id="loginForm" method="post" action="#">
+                        <div class="mb-3">
+                            <label for="inputUsuario" class="form-label">Usuario o correo</label>
+                            <input type="text" class="form-control" id="inputUsuario" name="usuario" placeholder="Ingresa tu usuario o correo" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="inputPassword" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="inputPassword" name="password" placeholder="Contraseña" required />
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="rememberMe" />
+                            <label class="form-check-label" for="rememberMe">Recordarme</label>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Iniciar sesión</button>
+                        </div>
+
+                        <div class="mt-3 text-center">
+                            <a asp-controller="Productos" asp-action="Autocobro" class="btn btn-success">Ir a Autocobro</a>
+                        </div>
+                    </form>
                 </div>
+            </div>
+
+            <div class="text-center mt-3 text-muted">
+                <small>¿No tienes cuenta? Contacta al administrador.</small>
             </div>
         </div>
     </div>
-
 </div>
+
+@section Scripts {
+    <script>
+        // Basic client-side handling for the login form
+        (function () {
+            const form = document.getElementById('loginForm');
+            const productsUrl = '@Url.Action("Index", "Productos")';
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const usuario = document.getElementById('inputUsuario').value.trim();
+                const password = document.getElementById('inputPassword').value;
+
+                if (!usuario || !password) {
+                    alert('Ingrese usuario y contraseña');
+                    return;
+                }
+
+                // If credentials are exactly ADMIN / ADMIN redirect to Productos Index
+                if (usuario === 'ADMIN' && password === 'ADMIN') {
+                    window.location.href = productsUrl;
+                    return;
+                }
+
+                alert('Credenciales inválidas');
+            });
+        })();
+    </script>
+}

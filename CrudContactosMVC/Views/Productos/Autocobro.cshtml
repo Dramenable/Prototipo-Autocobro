@@ -1,0 +1,325 @@
+@{
+    ViewData["Title"] = "Autocobro";
+}
+
+<style>
+    /* Overlay for payment animation */
+    .payment-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+
+    .payment-card-area {
+        width: 320px;
+        height: 200px;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: 16px;
+    }
+
+    .card-slot {
+        width: 260px;
+        height: 60px;
+        border-radius: 8px;
+        background: linear-gradient(180deg,#e9ecef,#dee2e6);
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 14px;
+    }
+
+    .card-mock {
+        width: 220px;
+        height: 45px;
+        background: linear-gradient(90deg,#2b8aef,#0b5ed7);
+        border-radius: 6px;
+        position: absolute;
+        left: 20px;
+        top: 8px;
+        transform: translateY(-120%);
+        box-shadow: 0 6px 18px rgba(11,93,215,0.4);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    @@keyframes insertCard {
+        0% { transform: translateY(-120%); opacity: 0 }
+        20% { transform: translateY(-10%); opacity: 1 }
+        60% { transform: translateY(0%); opacity: 1 }
+        100% { transform: translateY(0%); opacity: 1 }
+    }
+
+    .card-mock.animate {
+        animation: insertCard 5s ease-in-out forwards;
+    }
+
+    .payment-message {
+        font-size: 1rem;
+        color: #333;
+    }
+
+    /* Success box styles */
+    .success-box {
+        width: 300px;
+        height: 180px;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: 20px;
+    }
+
+    .success-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #d1f7d6; /* light green */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+        transform: scale(0.6);
+        opacity: 0;
+    }
+
+    .success-circle.show {
+        animation: popIn 0.6s ease-out forwards;
+    }
+
+    @@keyframes popIn {
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    .success-message {
+        color: #2d7a2d;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+</style>
+
+<div class="container mt-4">
+    <h2>Autocobro</h2>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label for="productIdInput" class="form-label">ID del producto</label>
+            <input type="number" id="productIdInput" class="form-control" min="1" />
+        </div>
+        <div class="col-md-2 align-self-end">
+            <button id="registerBtn" class="btn btn-primary">Registrar</button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <table class="table table-bordered" id="cartTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Cantidad</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Items will be injected here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 text-end">
+            <h4>Total: <span id="totalAmount">0.00</span></h4>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-8 text-end">
+            <button id="payBtn" class="btn btn-success btn-lg">PAGAR</button>
+        </div>
+    </div>
+</div>
+
+<!-- Payment animation overlay -->
+<div id="paymentOverlay" class="payment-overlay" aria-hidden="true">
+    <div id="paymentCardArea" class="payment-card-area" role="dialog" aria-modal="true" aria-label="Animación de pago">
+        <div class="card-slot">
+            <div id="cardMock" class="card-mock">Introduce tu tarjeta</div>
+        </div>
+        <div class="payment-message">Introduce tu tarjeta</div>
+    </div>
+
+    <div id="successBox" class="success-box" style="display:none;" role="status" aria-live="polite">
+        <div id="successCircle" class="success-circle">
+            <!-- checkmark SVG -->
+            <svg width="40" height="30" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <path fill="none" stroke="#2d7a2d" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M14 27l7 7 17-17" />
+            </svg>
+        </div>
+        <div class="success-message">Pago realizado</div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const registerBtn = document.getElementById('registerBtn');
+            const productIdInput = document.getElementById('productIdInput');
+            const cartTableBody = document.querySelector('#cartTable tbody');
+            const totalAmountSpan = document.getElementById('totalAmount');
+            const payBtn = document.getElementById('payBtn');
+            const paymentOverlay = document.getElementById('paymentOverlay');
+            const cardMock = document.getElementById('cardMock');
+            const paymentCardArea = document.getElementById('paymentCardArea');
+            const successBox = document.getElementById('successBox');
+            const successCircle = document.getElementById('successCircle');
+
+            // cartItems: { id, nombre, precio, cantidad }
+            const cartItems = [];
+
+            function formatMoney(value) {
+                return parseFloat(value).toFixed(2);
+            }
+
+            function updateCartDisplay() {
+                cartTableBody.innerHTML = '';
+                let total = 0;
+
+                cartItems.forEach(item => {
+                    const subtotal = item.precio * item.cantidad;
+                    total += subtotal;
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.id}</td>
+                        <td>${item.nombre}</td>
+                        <td>${formatMoney(item.precio)}</td>
+                        <td>${item.cantidad}</td>
+                        <td>${formatMoney(subtotal)}</td>
+                    `;
+
+                    cartTableBody.appendChild(tr);
+                });
+
+                totalAmountSpan.textContent = formatMoney(total);
+            }
+
+            async function registerProduct() {
+                const id = parseInt(productIdInput.value, 10);
+                if (!id || id <= 0) {
+                    alert('Ingrese un ID válido');
+                    return;
+                }
+
+                try {
+                    const resp = await fetch(`/Productos/GetProductoJson?id=${id}`);
+                    if (!resp.ok) {
+                        alert('Error al consultar el producto');
+                        return;
+                    }
+
+                    const data = await resp.json();
+                    if (!data || data.success === false) {
+                        alert('Producto no encontrado');
+                        return;
+                    }
+
+                    const existing = cartItems.find(x => x.id === data.id);
+                    if (existing) {
+                        existing.cantidad += 1;
+                    } else {
+                        cartItems.push({ id: data.id, nombre: data.nombre, precio: parseFloat(data.precio), cantidad: 1 });
+                    }
+
+                    updateCartDisplay();
+                    productIdInput.value = '';
+                    productIdInput.focus();
+                }
+                catch (err) {
+                    console.error(err);
+                    alert('Ocurrió un error al registrar el producto');
+                }
+            }
+
+            registerBtn.addEventListener('click', registerProduct);
+
+            // allow pressing Enter in the input to register
+            productIdInput.addEventListener('keyup', function (e) {
+                if (e.key === 'Enter') {
+                    registerProduct();
+                }
+            });
+
+            // Show payment animation overlay for 5 seconds, then show success for 3 seconds
+            function showPaymentAnimation() {
+                if (!cartItems.length) {
+                    alert('El carrito está vacío');
+                    return;
+                }
+
+                // disable pay button while processing
+                payBtn.disabled = true;
+
+                // show overlay with card area
+                paymentOverlay.style.display = 'flex';
+                paymentOverlay.setAttribute('aria-hidden', 'false');
+                paymentCardArea.style.display = 'flex';
+                successBox.style.display = 'none';
+
+                // restart animation
+                cardMock.classList.remove('animate');
+                void cardMock.offsetWidth; // reflow
+                cardMock.classList.add('animate');
+
+                // after 5s (card animation) show success
+                setTimeout(() => {
+                    // hide card area and show success box
+                    paymentCardArea.style.display = 'none';
+                    successBox.style.display = 'flex';
+                    // animate success circle
+                    successCircle.classList.add('show');
+
+                    // after 3s hide overlay, reset and clear cart
+                    setTimeout(() => {
+                        successCircle.classList.remove('show');
+                        successBox.style.display = 'none';
+                        paymentOverlay.style.display = 'none';
+                        paymentOverlay.setAttribute('aria-hidden', 'true');
+                        // reset card mock state
+                        cardMock.classList.remove('animate');
+
+                        // clear cart items and update display
+                        cartItems.length = 0;
+                        updateCartDisplay();
+
+                        // re-enable pay button
+                        payBtn.disabled = false;
+                    }, 3000);
+                }, 5000);
+            }
+
+            payBtn.addEventListener('click', showPaymentAnimation);
+        })();
+    </script>
+}

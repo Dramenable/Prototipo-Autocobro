@@ -1,0 +1,28 @@
+@model CrudContactosMVC.Models.Producto
+
+@{
+    ViewData["Title"] = "Detalle Producto";
+}
+
+<h1>Detalle Producto</h1>
+
+<div>
+    <dl class="row">
+        <dt class="col-sm-2">Id</dt>
+        <dd class="col-sm-10">@Model.Id</dd>
+
+        <dt class="col-sm-2">Nombre</dt>
+        <dd class="col-sm-10">@Model.Nombre</dd>
+
+        <dt class="col-sm-2">Precio</dt>
+        <dd class="col-sm-10">@Model.Precio.ToString("F2")</dd>
+
+        <dt class="col-sm-2">Cantidad</dt>
+        <dd class="col-sm-10">@Model.Cantidad</dd>
+    </dl>
+</div>
+
+<p>
+    <a asp-action="Editar" asp-route-id="@Model.Id" class="btn btn-primary">Editar</a>
+    <a asp-action="Index" class="btn btn-secondary">Volver</a>
+</p>
