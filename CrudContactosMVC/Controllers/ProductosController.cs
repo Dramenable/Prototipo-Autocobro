@@ -216,6 +216,15 @@ namespace CrudContactosMVC.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        public IActionResult AutocobroCancelar()
+        {
+            HttpContext.Session.Remove(AutocobroCartSessionKey);
+            HttpContext.Session.Remove(AutocobroFirstDetectionProductsSessionKey);
+            return Ok();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult AutocobroPagar()
         {
             var cartItems = GetCartItems();
@@ -224,6 +233,17 @@ namespace CrudContactosMVC.Controllers
                 TempData["AutocobroMensaje"] = "El carrito está vacío";
                 return RedirectToAction(nameof(Autocobro));
             }
+
+            // Actualizar inventario: restar la cantidad comprada a cada producto
+            foreach (var item in cartItems)
+            {
+                var producto = _context.Productos.FirstOrDefault(p => p.Id == item.Id);
+                if (producto != null)
+                {
+                    producto.Cantidad = Math.Max(0, producto.Cantidad - item.Cantidad);
+                }
+            }
+            _context.SaveChanges();
 
             HttpContext.Session.Remove(AutocobroCartSessionKey);
             HttpContext.Session.Remove(AutocobroFirstDetectionProductsSessionKey);
@@ -284,34 +304,41 @@ namespace CrudContactosMVC.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ValidarPagoConSegundaDeteccion(IFormFile file)
+        public async Task<IActionResult>  ValidarPagoConSegundaDeteccion(IFormFile file)
         {
+            // Valida que llegue una imagen desde el navegador.
             if (file == null || file.Length == 0)
             {
                 return BadRequest(new { success = false, mensaje = "No se recibió una imagen." });
             }
 
+            // Recupera la detección inicial guardada en sesión.
             var firstDetectionJson = HttpContext.Session.GetString(AutocobroFirstDetectionProductsSessionKey);
             if (string.IsNullOrWhiteSpace(firstDetectionJson))
             {
                 return BadRequest(new { success = false, mensaje = "Primero debe realizar la detección inicial." });
             }
 
+            // Convierte la detección inicial a lista de productos.
             var firstProducts = JsonSerializer.Deserialize<List<string>>(firstDetectionJson) ?? new List<string>();
 
             try
             {
+                // Envía la nueva imagen al API y obtiene el JSON de respuesta.
                 var responseContent = await EnviarImagenADeteccionAsync(file);
+                // Extrae y normaliza los productos detectados en la segunda imagen.
                 var secondProducts = NormalizarProductos(ExtraerNombresDesdeJson(responseContent));
 
+                // Compara ambas listas (mismos elementos y orden, ignorando mayúsculas/minúsculas).
                 var coinciden = firstProducts.SequenceEqual(secondProducts, StringComparer.OrdinalIgnoreCase);
 
+                // Devuelve el resultado de la comparación junto con ambas listas.
                 return Json(new
                 {
                     success = coinciden,
                     mensaje = coinciden
                         ? "Los productos coinciden."
-                        : "La segunda detección no coincide con la primera.",
+                        : "Los productos detectados no coinciden con los productos pagados. Por favor espere asistencia.",
                     responseJson = FormatJson(responseContent),
                     firstProducts,
                     secondProducts
@@ -361,21 +388,40 @@ namespace CrudContactosMVC.Controllers
 
         private async Task<string> EnviarImagenADeteccionAsync(IFormFile file)
         {
+            // Prepara un body multipart/form-data para poder enviar el archivo al API externo.
+            // El endpoint /detect exige un campo tipo archivo llamado "file".
             using var form = new MultipartFormDataContent();
+
+            // Abre el stream del archivo recibido desde el navegador (la captura de cámara).
             await using var fileStream = file.OpenReadStream();
+
+            // Envuelve el stream en contenido HTTP para adjuntarlo al multipart.
             using var streamContent = new StreamContent(fileStream);
+
+            // Define el Content-Type del archivo. Si el navegador no lo manda, usa octet-stream.
             streamContent.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+
+            // Agrega el archivo al form con el nombre de campo "file" (requerido por el API).
+            // También se envía un nombre de archivo para que el API pueda identificarlo.
             form.Add(streamContent, "file", string.IsNullOrWhiteSpace(file.FileName) ? "capture.jpg" : file.FileName);
 
+            // Obtiene un HttpClient desde la factory (recomendado para manejar el ciclo de vida del cliente).
             var client = _httpClientFactory.CreateClient();
+
+            // Envía el POST al API de detección (FastAPI o similar) que corre en localhost:8000.
             using var response = await client.PostAsync("http://localhost:8000/detect", form);
+
+            // Lee el contenido de la respuesta como texto (normalmente JSON).
             var responseContent = await response.Content.ReadAsStringAsync();
 
+            // Si el API devolvió error, se lanza una excepción con el contenido de la respuesta
+            // para que el controlador pueda responder con StatusCode(500) al cliente.
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException(responseContent);
             }
 
+            // Devuelve el JSON (texto) generado por el API de detección.
             return responseContent;
         }
 

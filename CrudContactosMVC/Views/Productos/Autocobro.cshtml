@@ -4,6 +4,7 @@
     ViewData["Title"] = "Autocobro";
 }
 
+@* Estilos de la página de autocobro (resultado JSON, modal de cámara, botones). *@
 <style>
     #detectResult {
         min-height: 120px;
@@ -42,11 +43,132 @@
         gap: 8px;
         margin-top: 10px;
     }
+
+    #cardModal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1051;
+    }
+
+    .card-modal-content {
+        width: 100%;
+        max-width: 400px;
+        background: #fff;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        padding: 40px 30px;
+        text-align: center;
+    }
+
+    .card-animation {
+        perspective: 1000px;
+        margin: 30px 0;
+    }
+
+    .card-item {
+        width: 100%;
+        height: 220px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        padding: 20px;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        animation: cardFlip 0.6s ease-in-out;
+    }
+
+    @@keyframes cardFlip {
+        0% {
+            transform: rotateY(0deg);
+            opacity: 0;
+        }
+        50% {
+            transform: rotateY(90deg);
+        }
+        100% {
+            transform: rotateY(0deg);
+            opacity: 1;
+        }
+    }
+
+    .card-chip {
+        width: 60px;
+        height: 45px;
+        background: linear-gradient(135deg, #ffd700, #ffed4e);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #333;
+        font-size: 12px;
+    }
+
+    .card-number {
+        font-size: 24px;
+        letter-spacing: 2px;
+        font-weight: 500;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-holder {
+        font-size: 14px;
+        opacity: 0.9;
+        text-align: left;
+    }
+
+    .card-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        font-size: 12px;
+    }
+
+    .card-label {
+        opacity: 0.7;
+        font-size: 10px;
+        text-transform: uppercase;
+    }
+
+    .card-expiry {
+        text-align: right;
+    }
+
+    .card-message {
+        font-size: 18px;
+        font-weight: 600;
+        color: #667eea;
+        margin-top: 20px;
+    }
+
+    .card-timer {
+        font-size: 48px;
+        font-weight: bold;
+        color: #667eea;
+        margin-top: 10px;
+        animation: pulse 1s infinite;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+    }
 </style>
 
 <div class="container mt-4">
     <h2>Autocobro</h2>
 
+    @* Mensajes del flujo (ej. pago realizado / info). *@
     @if (!string.IsNullOrWhiteSpace(Model.Mensaje) && !Model.Mensaje.Contains("registrad", StringComparison.OrdinalIgnoreCase))
     {
         <div id="statusAlert" class="alert @(Model.PagoRealizado ? "alert-success" : "alert-info")" role="alert">
@@ -54,6 +176,7 @@
         </div>
     }
 
+    @* Tabla del carrito (render inicial desde el servidor). *@
     <div class="row">
         <div class="col-md-8">
             <table class="table table-bordered">
@@ -107,6 +230,7 @@
         </div>
     </div>
 
+    @* Acciones principales: cancelar compra, detectar productos y pagar. *@
     <div class="row mt-3">
         <div class="col-md-8 d-flex justify-content-end gap-2">
             <button type="button" id="cancelPurchaseBtn" class="btn btn-danger btn-lg">Cancelar compra</button>
@@ -118,19 +242,52 @@
         </div>
     </div>
 
-    <div class="row mt-3">
+    <div class="row mt-3" style="display:none;" id="detectResponseContainer">
         <div class="col-md-8">
             <h5>Respuesta JSON del API</h5>
             <pre id="detectResult" class="bg-light border rounded p-3">Esperando detección...</pre>
         </div>
     </div>
 
+    @* Antiforgery token para requests AJAX (fetch). *@
     <form id="detectForm" style="display:none;">
+        @Html.AntiForgeryToken()
+    </form>
+
+    <form id="cancelForm" asp-action="AutocobroCancelar" method="post" style="display:none;">
         @Html.AntiForgeryToken()
     </form>
 
 </div>
 
+@* Modal de animación de tarjeta de crédito (3 segundos antes de abrir cámara). *@
+<div id="cardModal" aria-hidden="true">
+    <div class="card-modal-content" role="dialog" aria-modal="true" aria-label="Procesando pago con tarjeta">
+        <h3>Introduce tu tarjeta</h3>
+        <div class="card-animation">
+            <div class="card-item">
+                <div>
+                    <div class="card-chip">CHIP</div>
+                </div>
+                <div class="card-number">•••• •••• •••• 4242</div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div class="card-holder">
+                        <div class="card-label">Titular</div>
+                        <div style="font-size: 14px;">YOUR NAME</div>
+                    </div>
+                    <div class="card-expiry">
+                        <div class="card-label">Válida hasta</div>
+                        <div style="font-size: 14px;">12/25</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-message">Verificando tarjeta...</div>
+        <div class="card-timer"><span id="cardTimer">3</span>s</div>
+    </div>
+</div>
+
+@* Modal simple para previsualización de cámara y confirmación de captura. *@
 <div id="cameraModal" aria-hidden="true">
     <div class="camera-modal-content" role="dialog" aria-modal="true" aria-label="Captura de cámara">
         <video id="cameraVideo" autoplay playsinline muted></video>
@@ -145,8 +302,11 @@
 @section Scripts {
     <script>
         (() => {
+            // --- Referencias DOM ---
             const detectBtn = document.getElementById('detectBtn');
             const cameraModal = document.getElementById('cameraModal');
+            const cardModal = document.getElementById('cardModal');
+            const cardTimer = document.getElementById('cardTimer');
             const video = document.getElementById('cameraVideo');
             const canvas = document.getElementById('cameraCanvas');
             const cameraConfirmBtn = document.getElementById('cameraConfirmBtn');
@@ -159,8 +319,15 @@
             const payForm = document.getElementById('payForm');
             const payBtn = document.getElementById('payBtn');
             const cancelPurchaseBtn = document.getElementById('cancelPurchaseBtn');
+            const cancelFormToken = document.querySelector('#cancelForm input[name="__RequestVerificationToken"]');
             const tokenInput = document.querySelector('#detectForm input[name="__RequestVerificationToken"]');
+
+            // --- Estado ---
             let activeStream = null;
+
+            // Modo de captura:
+            // - 'detect': primera detección (llama a DetectarProductos y actualiza carrito)
+            // - 'pay': segunda detección antes de pagar (llama a ValidarPagoConSegundaDeteccion)
             let captureMode = 'detect';
 
             function formatMoney(value) {
@@ -199,14 +366,38 @@
                 updateSummary(total);
             }
 
+            async function showCardAnimation() {
+                return new Promise((resolve) => {
+                    cardModal.style.display = 'flex';
+                    cardModal.setAttribute('aria-hidden', 'false');
+                    
+                    let timeRemaining = 3;
+                    cardTimer.textContent = timeRemaining;
+
+                    const countdown = setInterval(() => {
+                        timeRemaining--;
+                        cardTimer.textContent = timeRemaining;
+
+                        if (timeRemaining <= 0) {
+                            clearInterval(countdown);
+                            cardModal.style.display = 'none';
+                            cardModal.setAttribute('aria-hidden', 'true');
+                            resolve();
+                        }
+                    }, 1000);
+                });
+            }
+
             async function openCameraModal() {
                 try {
+                    // Bloquea botones para evitar acciones concurrentes mientras está abierta la cámara.
                     detectBtn.disabled = true;
                     if (payBtn) {
                         payBtn.disabled = true;
                     }
                     detectResult.textContent = 'Abriendo cámara...';
 
+                    // Solicita acceso a cámara y muestra la previsualización en el <video>.
                     activeStream = await navigator.mediaDevices.getUserMedia({ video: true });
                     video.srcObject = activeStream;
                     cameraModal.style.display = 'flex';
@@ -216,7 +407,7 @@
                         video.onloadedmetadata = () => resolve();
                     });
 
-                    detectResult.textContent = 'Cámara lista. Presiona Confirmar para capturar.';
+                    detectResult.textContent = 'Cámara lista. Presiona "Detectar productos" para capturar.';
                 } catch (error) {
                     detectResult.textContent = `Error: ${error.message}`;
                     closeCameraModal();
@@ -224,6 +415,7 @@
             }
 
             function closeCameraModal() {
+                // Detiene la cámara y cierra el modal.
                 if (activeStream) {
                     activeStream.getTracks().forEach(track => track.stop());
                     activeStream = null;
@@ -246,16 +438,19 @@
                 }
 
                 try {
+                    // Deshabilita acciones del modal mientras se captura/envía.
                     cameraConfirmBtn.disabled = true;
                     cameraCancelBtn.disabled = true;
 
                     await new Promise(resolve => setTimeout(resolve, 400));
 
+                    // Captura un frame del <video> hacia <canvas>.
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     const context = canvas.getContext('2d');
                     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+                    // Convierte el canvas a Blob (JPEG) para enviarlo como multipart/form-data.
                     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
                     if (!blob) {
                         throw new Error('No se pudo capturar la imagen.');
@@ -266,6 +461,9 @@
 
                     detectResult.textContent = 'Enviando imagen al API...';
 
+                    // Según el modo:
+                    //  - detect: llena/actualiza el carrito con los productos detectados.
+                    //  - pay: valida que la segunda detección coincida con la primera.
                     const url = captureMode === 'pay'
                         ? '@Url.Action("ValidarPagoConSegundaDeteccion", "Productos")'
                         : '@Url.Action("DetectarProductos", "Productos")';
@@ -291,10 +489,12 @@
                     if (captureMode === 'pay') {
                         detectResult.textContent = data.responseJson ?? responseText;
                         if (!data.success) {
-                            alert(data.mensaje || 'La segunda detección no coincide con la primera.');
+                            // Si los productos difieren entre detecciones, se bloquea el pago.
+                            alert(data.mensaje || 'Los productos detectados no coinciden con los productos pagados. Por favor espere asistencia.');
                             return;
                         }
 
+                        // Si coincide, se envía el formulario de pago tradicional (MVC) que limpia el carrito en servidor.
                         payForm.submit();
                         return;
                     }
@@ -309,6 +509,7 @@
             }
 
             if (@Model.PagoRealizado.ToString().ToLowerInvariant()) {
+                // Oculta automáticamente el mensaje de pago exitoso después de 3s.
                 const statusAlert = document.getElementById('statusAlert');
                 if (statusAlert) {
                     setTimeout(() => {
@@ -317,20 +518,39 @@
                 }
             }
 
+            // Primera detección: abre cámara y luego al confirmar manda imagen a DetectarProductos.
             detectBtn.addEventListener('click', () => {
                 captureMode = 'detect';
                 openCameraModal();
             });
+
+            // Confirmación de captura desde el modal.
             cameraConfirmBtn.addEventListener('click', captureAndDetect);
+
+            // Cancelación/cierre del modal.
             cameraCancelBtn.addEventListener('click', closeCameraModal);
-            payForm.addEventListener('submit', (e) => {
+
+            // Pago: muestra animación de tarjeta durante 3 segundos, luego abre cámara.
+            payForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 captureMode = 'pay';
+                await showCardAnimation();
                 openCameraModal();
             });
-            cancelPurchaseBtn.addEventListener('click', () => {
-                renderCart([], 0);
-                detectResult.textContent = 'Esperando detección...';
+
+            // Cancelar compra: limpia solo la UI (tabla y totales) en el cliente.
+            cancelPurchaseBtn.addEventListener('click', async () => {
+                try {
+                    await fetch('@Url.Action("AutocobroCancelar", "Productos")', {
+                        method: 'POST',
+                        headers: {
+                            'RequestVerificationToken': cancelFormToken.value
+                        }
+                    });
+                } finally {
+                    renderCart([], 0);
+                    detectResult.textContent = 'Esperando detección...';
+                }
             });
         })();
     </script>
